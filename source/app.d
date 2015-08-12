@@ -24,7 +24,8 @@ string toHash(Hash)(in ubyte[] data)
 {
     return data
         .digest!Hash
-        .toHexString!(Order.decreasing);
+        .toHexString!(Order.decreasing)
+        .dup;
 }
 
 // 日本語Windowsのコンソール文字化け対策
