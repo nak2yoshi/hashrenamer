@@ -2,5 +2,5 @@
 	"name": "hashrenamer",
 	"targetType": "executable",
     "description": "image-file's auto renamer by D language.",
-    "copyright": "Copyright © 2014, iyos",
+    "copyright": "Copyright © 2014-2015, iyos",
 }
