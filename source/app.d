@@ -20,7 +20,7 @@ bool isImage(string name)
 }
 
 /// データからハッシュ文字列を計算
-string toHash(Hash)(in ubyte[] data)
+string toHash(Hash)(ubyte[] data)
 {
     return data
         .digest!Hash
