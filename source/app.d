@@ -1,4 +1,4 @@
-///dmd2.067
+///dmd2.068.0
 import std.file;
 import std.path       : extension, buildPath, filenameCmp, dirName, setExtension;
 import std.regex      : regex, match, replaceAll;
