@@ -1,7 +1,7 @@
 ///dmd2.068.0
 import std.file;
 import std.path       : extension, buildPath, filenameCmp, dirName, setExtension;
-import std.regex      : regex, match, replaceAll;
+import std.regex      : regex, matchFirst, replaceAll;
 import core.thread;
 import std.digest.crc;
 import std.string     : toLower;
@@ -10,10 +10,7 @@ import std.conv       : to;
 /// 画像ファイルか拡張子でチェック
 bool isImage(string name)
 {
-    if (!name.isFile)
-        return false;
-
-    return !match(
+    return name.isFile && !matchFirst(
         name.extension,
         regex(`^\.(jpe?g|png|gif|bmp)`, "i")
     ).empty;
