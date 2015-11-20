@@ -1,11 +1,11 @@
 ///dmd2.068.0
 import std.file;
-import std.path       : extension, buildPath, filenameCmp, dirName, setExtension;
 import std.regex      : regex, matchFirst, replaceAll;
+import std.path       : extension, buildPath, filenameCmp, dirName, setExtension;
 import core.thread;
+import std.typecons   : Tuple;
 import std.digest.crc;
 import std.string     : toLower;
-import std.conv       : to;
 
 /// 画像ファイルか拡張子でチェック
 bool isImage(string name)
@@ -54,8 +54,7 @@ void main(string[] args)
     scope(exit) Thread.sleep(5.seconds);
 
     /// 処理ファイル数、リネーム数、重複ファイル数を記録
-    struct C { size_t target, renamed, duplicated; }
-    C counter;
+    Tuple!(size_t, "target", size_t, "renamed", size_t, "duplicated") counter;
 
     /// ファイル名をハッシュ文字列にリネーム
     void tryRename(string org)
