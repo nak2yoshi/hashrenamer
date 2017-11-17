@@ -9,7 +9,7 @@ import std.digest.crc;
 import std.string     : toLower;
 
 /// 画像ファイルか拡張子でチェック
-bool isImage(string name)
+bool isImageFile(string name)
 {
     return name.isFile && !matchFirst(
         name.extension,
@@ -18,7 +18,7 @@ bool isImage(string name)
 }
 
 /// データからハッシュ文字列を計算
-string toHash(Hash)(ubyte[] data)
+string toHashString(Hash)(ubyte[] data)
 {
     return data
         .digest!Hash
@@ -58,46 +58,46 @@ void main(string[] args)
     Tuple!(size_t, "target", size_t, "renamed", size_t, "duplicated") counter;
 
     /// ファイル名をハッシュ文字列にリネーム
-    void tryRename(string org)
+    void tryRename(string orgName)
     {
         // ファイル読み込み
-        auto data = cast(ubyte[])read(org);
-        auto hash = data.toHash!CRC32;
+        auto data = cast(ubyte[])read(orgName);
+        auto hash = data.toHashString!CRC32;
         // 拡張子の末尾(large|orig)対策
         auto ext = replaceAll(
-            org.extension,
+            orgName.extension,
             regex(`^\.(jpe?g|png|gif|bmp).*$`, "i"),
             ".$1"
         );
         // ファイル名のみ、ハッシュ文字列に置き換える
-        auto ren = buildPath(
-            org.dirName,
+        auto renName = buildPath(
+            orgName.dirName,
             setExtension(hash, ext.toLower)
         );
-        debug writeln("[org]: ", org);
-        debug writeln("[ren]: ", ren);
+        debug writeln("[org]: ", orgName);
+        debug writeln("[ren]: ", renName);
 
         // 既にリネーム済みなら何もしない
-        if (!filenameCmp(org, ren))
+        if (!filenameCmp(orgName, renName))
             return;
 
         counter.target++;
 
-        if (!ren.exists)
+        if (!renName.exists)
         {
             // ファイル名をリネーム
-            rename(org, ren);
+            orgName.rename(renName);
             counter.renamed++;
         }
         else
         {
-            writeln("[dup]: ", org);
+            writeln("[dup]: ", orgName);
             // ダブってたら新しい方を削除
-            auto exist = cast(ubyte[])read(ren);
-            if (exist.toHash!CRC32 == hash)
+            auto old = cast(ubyte[])read(renName);
+            if (old.toHashString!CRC32 == hash)
             {
-                writeln("[del]: ", org);
-                org.remove;
+                writeln("[del]: ", orgName);
+                orgName.remove;
             }
             counter.duplicated++;
         }
@@ -121,11 +121,11 @@ void main(string[] args)
                 {
                     if (path.isDir)
                         writeln(path);
-                    else if (path.isImage)
+                    else if (path.isImageFile)
                         tryRename(path);
                 }
             }
-            else if (arg.isImage)
+            else if (arg.isImageFile)
             {
                 tryRename(arg);
             }
