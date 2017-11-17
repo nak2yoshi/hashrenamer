@@ -1,5 +1,6 @@
 ///dmd2.068.0
 import std.file;
+import std.datetime   : SysTime;
 import std.regex      : regex, matchFirst, replaceAll;
 import std.path       : extension, buildPath, filenameCmp, dirName, setExtension;
 import core.thread;
@@ -75,22 +76,34 @@ void main(string[] args)
         debug writeln("[org]: ", org);
         debug writeln("[ren]: ", ren);
 
-        if (filenameCmp(org, ren) != 0)
-        {
-            counter.target++;
+        // 既にリネーム済みなら何もしない
+        if (!filenameCmp(org, ren))
+            return;
 
-            if (!ren.exists)
+        counter.target++;
+
+        if (!ren.exists)
+        {
+            // ファイル名をリネーム
+            rename(org, ren);
+            counter.renamed++;
+        }
+        else
+        {
+            debug writeln("[dup]: ", org);
+            // ダブってたら新しい方を削除
+            Tuple!(SysTime, "accessTime", SysTime, "modificationTime") otimes, rtimes;
+            org.getTimes(otimes.accessTime, otimes.modificationTime);
+            ren.getTimes(rtimes.accessTime, rtimes.modificationTime);
+            if (otimes.modificationTime < rtimes.modificationTime)
             {
-                // ファイル名をリネーム
-                rename(org, ren);
-                counter.renamed++;
+                ren.remove;
             }
             else
             {
-                // ダブってたら表示
-                writeln("[dup]: ", org);
-                counter.duplicated++;
+                org.remove;
             }
+            counter.duplicated++;
         }
     }
 
