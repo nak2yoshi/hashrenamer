@@ -1,6 +1,5 @@
 ///dmd2.068.0
 import std.file;
-import std.datetime   : SysTime;
 import std.regex      : regex, matchFirst, replaceAll;
 import std.path       : extension, buildPath, filenameCmp, dirName, setExtension;
 import core.thread;
