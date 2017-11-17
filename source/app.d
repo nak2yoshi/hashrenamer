@@ -62,6 +62,7 @@ void main(string[] args)
     {
         // ファイル読み込み
         auto data = cast(ubyte[])read(org);
+        auto hash = data.toHash!CRC32;
         // 拡張子の末尾(large|orig)対策
         auto ext = replaceAll(
             org.extension,
@@ -71,7 +72,7 @@ void main(string[] args)
         // ファイル名のみ、ハッシュ文字列に置き換える
         auto ren = buildPath(
             org.dirName,
-            setExtension(data.toHash!CRC32, ext.toLower)
+            setExtension(hash, ext.toLower)
         );
         debug writeln("[org]: ", org);
         debug writeln("[ren]: ", ren);
@@ -90,17 +91,12 @@ void main(string[] args)
         }
         else
         {
-            debug writeln("[dup]: ", org);
+            writeln("[dup]: ", org);
             // ダブってたら新しい方を削除
-            Tuple!(SysTime, "accessTime", SysTime, "modificationTime") otimes, rtimes;
-            org.getTimes(otimes.accessTime, otimes.modificationTime);
-            ren.getTimes(rtimes.accessTime, rtimes.modificationTime);
-            if (otimes.modificationTime < rtimes.modificationTime)
+            auto exist = cast(ubyte[])read(ren);
+            if (exist.toHash!CRC32 == hash)
             {
-                ren.remove;
-            }
-            else
-            {
+                writeln("[del]: ", org);
                 org.remove;
             }
             counter.duplicated++;
