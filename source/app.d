@@ -6,8 +6,8 @@ import core.thread;
 import std.typecons   : Tuple;
 import std.digest.crc;
 import std.string     : toLower;
-import std.range;
-import std.algorithm;
+import std.range      : tee, No;
+import std.algorithm  : each;
 
 /// 画像ファイルか拡張子でチェック
 bool isImageFile(string name)
@@ -61,6 +61,10 @@ void main(string[] args)
     /// ファイル名をハッシュ文字列にリネーム
     void tryRename(Hash = CRC32)(string orgName)
     {
+        // 画像ファイルのみが対象
+        if (!orgName.isImageFile)
+            return;
+
         // ファイル読み込み
         auto data = cast(ubyte[])read(orgName);
         auto hash = data.toHashString!Hash;
@@ -118,12 +122,8 @@ void main(string[] args)
             .each!(path => path.isDir
                 ? path.dirEntries(SpanMode.breadth)
                     .tee!(path => path.isDir ? writeln(path) : 0, No.pipeOnPop)
-                    .each!(path => path.isImageFile
-                        ? tryRename(path)
-                        : 0)
-                : path.isImageFile
-                    ? tryRename(path)
-                    : 0);
+                    .each!(path => tryRename(path))
+                : tryRename(path));
     }
     catch (Exception e)
     {
