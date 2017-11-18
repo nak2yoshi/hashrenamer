@@ -1,4 +1,4 @@
-///dmd2.068.0
+///dmd2.077.0
 import std.file;
 import std.regex      : regex, matchFirst, replaceAll;
 import std.path       : extension, buildPath, filenameCmp, dirName, setExtension;
@@ -6,6 +6,8 @@ import core.thread;
 import std.typecons   : Tuple;
 import std.digest.crc;
 import std.string     : toLower;
+import std.range;
+import std.algorithm;
 
 /// 画像ファイルか拡張子でチェック
 bool isImageFile(string name)
@@ -57,11 +59,11 @@ void main(string[] args)
     Tuple!(size_t, "target", size_t, "renamed", size_t, "duplicated") counter;
 
     /// ファイル名をハッシュ文字列にリネーム
-    void tryRename(string orgName)
+    void tryRename(Hash = CRC32)(string orgName)
     {
         // ファイル読み込み
         auto data = cast(ubyte[])read(orgName);
-        auto hash = data.toHashString!CRC32;
+        auto hash = data.toHashString!Hash;
         // 拡張子の末尾(large|orig)対策
         auto ext = replaceAll(
             orgName.extension,
@@ -93,7 +95,7 @@ void main(string[] args)
             writeln("[dup]: ", orgName);
             // ダブってたら新しい方を削除
             auto old = cast(ubyte[])read(renName);
-            if (old.toHashString!CRC32 == hash)
+            if (old.toHashString!Hash == hash)
             {
                 writeln("[del]: ", orgName);
                 orgName.remove;
@@ -111,24 +113,17 @@ void main(string[] args)
     writeln("画像ファイルのチェックと、リネームを実行しています。");
     try
     {
-        foreach (arg; args)
-        {
-            if (arg.isDir)
-            {
-                writeln(arg);
-                foreach ( path; dirEntries(arg, SpanMode.breadth) )
-                {
-                    if (path.isDir)
-                        writeln(path);
-                    else if (path.isImageFile)
-                        tryRename(path);
-                }
-            }
-            else if (arg.isImageFile)
-            {
-                tryRename(arg);
-            }
-        }
+        args[1 .. $]
+            .tee!(path => path.isDir ? writeln(path) : 0, No.pipeOnPop)
+            .each!(path => path.isDir
+                ? path.dirEntries(SpanMode.breadth)
+                    .tee!(path => path.isDir ? writeln(path) : 0, No.pipeOnPop)
+                    .each!(path => path.isImageFile
+                        ? tryRename(path)
+                        : 0)
+                : path.isImageFile
+                    ? tryRename(path)
+                    : 0);
     }
     catch (Exception e)
     {
