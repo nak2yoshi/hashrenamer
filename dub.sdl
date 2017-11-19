@@ -1,0 +1,4 @@
+name "hashrenamer"
+targetType "executable"
+description "image-file's auto renamer by D language."
+copyright "Copyright © 2014-2017, iyos"
