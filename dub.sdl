@@ -1,4 +1,4 @@
 name "hashrenamer"
 targetType "executable"
-description "image-file's auto renamer by D language."
+description "Twitter's image file auto renamer."
 copyright "Copyright © 2014-2017, iyos"
