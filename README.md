@@ -9,15 +9,21 @@
 
 ## __Building:__
 
-* dub --build=release<br>
+```
+dub --build=release
+```
 or
-* dub --build=release --arch=x86_64
+```
+dub --build=release --arch=x86_64
+```
 
 ## __Usage:__
 
-* 実行ファイルのアイコンに、画像または画像の入ったフォルダをドラッグ＆ドロップ<br>
+* 実行ファイルのアイコン上に、画像または画像の入ったフォルダをドラッグ＆ドロップ<br>
 or
-* hashrenamer.exe "(folder-path|file-Path)"
+```
+hashrenamer.exe "( folder-path | file-Path) "
+```
 
 ## __Caution:__
 

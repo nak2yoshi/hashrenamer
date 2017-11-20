@@ -1,4 +1,4 @@
 name "hashrenamer"
 targetType "executable"
 description "Twitter's image file auto renamer."
-copyright "Copyright © 2014-2017, iyos"
+copyright "Copyright © 2014-2017, nak2yoshi"
