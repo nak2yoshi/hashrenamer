@@ -2,7 +2,7 @@ import std.file       : isFile, isDir, dirEntries, SpanMode, exists, read, renam
 import std.regex      : regex, matchFirst, replaceAll;
 import std.path       : extension, buildPath, filenameCmp, dirName, setExtension;
 import core.thread    : Thread, seconds;
-import std.stdio      : writeln, writefln;
+version(Windows) {} else { import std.stdio; }
 import std.typecons   : Tuple;
 import std.digest     : toHexString, Digest;
 import std.digest.crc;
@@ -28,16 +28,32 @@ string toHashString(Hash)(ubyte[] data)
         .dup;
 }
 
+// 日本語Windowsのコンソール文字化け対策
+version(Windows)
+{
+    import std.conv            : text;
+    import std.format          : format;
+    import std.stdio           : printf, puts;
+    import std.functional      : forward;
+    import std.windows.charset : toMBSz;
+
+    template writeImpl(alias fn1, alias fn2)
+    {
+        void writeImpl(A...)(auto ref A args)
+        {
+            fn2(fn1(forward!args).toMBSz);
+        }
+    }
+    alias write    = writeImpl!(text,   printf);
+    alias writef   = writeImpl!(format, printf);
+    alias writeln  = writeImpl!(text,   puts  );
+    alias writefln = writeImpl!(format, puts  );
+}
+
 
 /// エントリーポイント
 void main(string[] args)
 {
-    version(Windows)
-    {
-        import core.sys.windows.windows : SetConsoleOutputCP;
-        import core.sys.windows.winnls : CP_UTF8;
-        SetConsoleOutputCP( CP_UTF8 );  // or use "chcp 65001" instead
-    }
     scope(exit) Thread.sleep(5.seconds);
 
     /// 処理ファイル数、リネーム数、重複ファイル数を記録
