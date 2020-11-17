@@ -1,4 +1,5 @@
 import std.file       : isFile, isDir, dirEntries, SpanMode, exists, read, rename, remove;
+import trashcan;
 import std.regex      : regex, matchFirst, replaceAll;
 import std.path       : extension, buildPath, filenameCmp, dirName, setExtension;
 import core.thread    : Thread, seconds;
@@ -20,10 +21,10 @@ bool isImageFile(string name)
 }
 
 /// データからハッシュ文字列を計算
-string toHashString(Hash)(ubyte[] data)
+string toHashString(HashKind)(ubyte[] data)
 {
     return data
-        .digest!Hash
+        .digest!HashKind
         .toHexString!(Order.decreasing)
         .dup;
 }
@@ -60,7 +61,7 @@ void main(string[] args)
     Tuple!(size_t, "target", size_t, "renamed", size_t, "duplicated") counter;
 
     /// ファイル名をハッシュ文字列にリネーム
-    void tryRename(Hash = CRC32)(string orgName)
+    void tryRename(HashKind = CRC32)(string orgName)
     {
         // 画像ファイルのみが対象
         if (!orgName.isImageFile)
@@ -68,7 +69,7 @@ void main(string[] args)
 
         // ファイル読み込み
         auto data = cast(ubyte[])read(orgName);
-        auto hash = data.toHashString!Hash;
+        auto hash = data.toHashString!HashKind;
         // 拡張子の末尾(large|orig)対策
         auto ext = replaceAll(
             orgName.extension,
@@ -98,12 +99,13 @@ void main(string[] args)
         else
         {
             writeln("[dup]: ", orgName);
-            // ダブってたら新しい方を削除
+            // ダブってたら新しい方をゴミ箱へ移動
             auto old = cast(ubyte[])read(renName);
-            if (old.toHashString!Hash == hash)
+            if (old.toHashString!HashKind == hash)
             {
                 writeln("[del]: ", orgName);
-                orgName.remove;
+                //orgName.remove;
+                orgName.moveToTrash;
             }
             counter.duplicated++;
         }

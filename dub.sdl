@@ -1,4 +1,5 @@
 name "hashrenamer"
 description "Twitter's image file auto renamer."
 authors "nak2yoshi"
-copyright "Copyright © 2014-2017, nak2yoshi"
+copyright "Copyright © 2014-2020, nak2yoshi"
+dependency "trashcan" version="~>0.3.0"

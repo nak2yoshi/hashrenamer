@@ -1,0 +1,10 @@
+{
+	"fileVersion": 1,
+	"versions": {
+		"inilike": "1.2.0",
+		"isfreedesktop": "0.1.1",
+		"trashcan": "0.3.0",
+		"volumeinfo": "0.2.2",
+		"xdgpaths": "0.2.5"
+	}
+}
