@@ -1,5 +1,4 @@
 import std.file       : isFile, isDir, dirEntries, SpanMode, exists, read, rename, remove;
-import trashcan;
 import std.regex      : regex, matchFirst, replaceAll;
 import std.path       : extension, buildPath, filenameCmp, dirName, setExtension;
 import core.thread    : Thread, seconds;
@@ -27,6 +26,38 @@ string toHashString(HashKind)(ubyte[] data)
         .digest!HashKind
         .toHexString!(Order.decreasing)
         .dup;
+}
+
+/// ファイルをゴミ箱に移動
+void moveToTrash(scope string path)
+{
+    version(Windows) {
+        import core.sys.windows.shellapi;
+        import std.path : isAbsolute, asAbsolutePath;
+        import std.file : exists;
+        import std.utf : toUTF16;
+
+        if (!path.exists) {
+            throw new Exception("Path does not exist");
+        }
+        path.asAbsolutePath();
+
+        SHFILEOPSTRUCTW fileOp;
+        fileOp.wFunc = FO_DELETE;
+        fileOp.fFlags = FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_NOCONFIRMMKDIR | FOF_ALLOWUNDO;
+        //Note: pFrom.typeof is PCZZTSTR
+        //      This string must be double-null terminated.
+        //https://docs.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-shfileopstructw
+        wstring wPath = (path ~ "\0\0").toUTF16();
+        fileOp.pFrom = wPath.ptr;
+        int result = SHFileOperation(&fileOp);
+        if (result != 0) {
+            import std.format;
+            throw new Exception( result.format!"SHFileOperation failed with error code %s" );
+        }
+    } else {
+        assert(false, "Sorry, windows only");
+    }
 }
 
 // 日本語Windowsのコンソール文字化け対策
