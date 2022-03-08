@@ -29,18 +29,18 @@ string toHashString(HashKind)(ubyte[] data)
 }
 
 /// ファイルをゴミ箱に移動
-void moveToTrash(scope string path)
+void moveToTrash(scope string name) @trusted
 {
     version(Windows) {
         import core.sys.windows.shellapi;
-        import std.path : isAbsolute, asAbsolutePath;
-        import std.file : exists;
+        import std.path : isValidPath, absolutePath;
+        import std.file : exists, FileException;
         import std.utf : toUTF16;
 
-        if (!path.exists) {
-            throw new Exception("Path does not exist");
+        if (!name.isValidPath || !name.exists) {
+            throw new FileException(name);
         }
-        path.asAbsolutePath();
+        const path = name.absolutePath();
 
         SHFILEOPSTRUCTW fileOp;
         fileOp.wFunc = FO_DELETE;
@@ -52,8 +52,7 @@ void moveToTrash(scope string path)
         fileOp.pFrom = wPath.ptr;
         int result = SHFileOperation(&fileOp);
         if (result != 0) {
-            import std.format;
-            throw new Exception( result.format!"SHFileOperation failed with error code %s" );
+            throw new FileException(path);
         }
     } else {
         assert(false, "Sorry, windows only");
