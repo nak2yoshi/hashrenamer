@@ -1,23 +1,16 @@
-import std.file       : isFile, isDir, dirEntries, SpanMode, exists, read, rename, remove;
-import std.regex      : regex, matchFirst, replaceAll;
+import std.process    : executeShell;
+import std.file       : isFile, isDir, dirEntries, SpanMode, exists, read, rename;
+import std.regex      : regex, replaceAll;
 import std.path       : extension, buildPath, filenameCmp, dirName, setExtension;
-import core.thread    : Thread, seconds;
-version(Windows) {} else { import std.stdio; }
+import std.stdio      : writeln;
+import std.format     : format;
 import std.typecons   : Tuple;
-import std.digest     : toHexString, Digest;
 import std.digest.crc;
 import std.string     : toLower;
-import std.range      : tee, No;
-import std.algorithm  : each;
-
-/// 画像ファイルか拡張子でチェック
-bool isImageFile(string name)
-{
-    return name.isFile && !matchFirst(
-        name.extension,
-        regex(`^\.(jpe?g|png|gif|bmp)`, "i")
-    ).empty;
-}
+import std.range      : tee, No, array, walkLength;
+import std.algorithm  : each, filter;
+// third party library
+import progress.bar;
 
 /// データからハッシュ文字列を計算
 string toHashString(HashKind)(ubyte[] data)
@@ -59,33 +52,25 @@ void moveToTrash(scope string name) @trusted
     }
 }
 
-// 日本語Windowsのコンソール文字化け対策
-version(Windows)
-{
-    import std.conv            : text;
-    import std.format          : format;
-    import std.stdio           : printf, puts;
-    import std.functional      : forward;
-    import std.windows.charset : toMBSz;
-
-    template writeImpl(alias fn1, alias fn2)
-    {
-        void writeImpl(A...)(auto ref A args)
-        {
-            fn2(fn1(forward!args).toMBSz);
-        }
-    }
-    alias write    = writeImpl!(text,   printf);
-    alias writef   = writeImpl!(format, printf);
-    alias writeln  = writeImpl!(text,   puts  );
-    alias writefln = writeImpl!(format, puts  );
-}
 
 
 /// エントリーポイント
 void main(string[] args)
 {
-    scope(exit) Thread.sleep(5.seconds);
+    // 日本語Windowsのコンソール文字化け対策
+    version(Windows)
+    {
+        import core.sys.windows.windows : GetConsoleOutputCP, SetConsoleOutputCP, CP_UTF8;
+        const beforeCP = GetConsoleOutputCP();
+        SetConsoleOutputCP( CP_UTF8 );  // or use "chcp 65001" instead
+        scope(exit) SetConsoleOutputCP( beforeCP );
+    }
+
+    string[] message;
+    scope(exit) {
+        each!writeln(message);
+        executeShell("pause");
+    }
 
     /// 処理ファイル数、リネーム数、重複ファイル数を記録
     Tuple!(size_t, "target", size_t, "renamed", size_t, "duplicated") counter;
@@ -93,10 +78,6 @@ void main(string[] args)
     /// ファイル名をハッシュ文字列にリネーム
     void tryRename(HashKind = CRC32)(string orgName)
     {
-        // 画像ファイルのみが対象
-        if (!orgName.isImageFile)
-            return;
-
         // ファイル読み込み
         auto data = cast(ubyte[])read(orgName);
         auto hash = data.toHashString!HashKind;
@@ -111,11 +92,10 @@ void main(string[] args)
             orgName.dirName,
             setExtension(hash, ext.toLower)
         );
-        debug writeln("[org]: ", orgName);
-        debug writeln("[ren]: ", renName);
+        debug message ~= format!"[org:] %s"(orgName);
 
         // 既にリネーム済みなら何もしない
-        if (!filenameCmp(orgName, renName))
+        if ( ! filenameCmp(orgName, renName) )
             return;
 
         counter.target++;
@@ -124,55 +104,61 @@ void main(string[] args)
         {
             // ファイル名をリネーム
             orgName.rename(renName);
+            message ~= format!"[ren:] %s"(renName);
             counter.renamed++;
         }
         else
         {
-            writeln("[dup]: ", orgName);
+            message ~= format!"[dup:] %s"(orgName);
             // ダブってたら新しい方をゴミ箱へ移動
             auto old = cast(ubyte[])read(renName);
             if (old.toHashString!HashKind == hash)
             {
-                writeln("[del]: ", orgName);
-                //orgName.remove;
                 orgName.moveToTrash;
+                message ~= format!"[del:] %s"(orgName);
             }
             counter.duplicated++;
         }
     }
 
-    if (args.length < 2)
+    if (args.length != 2 || ! args[1].isDir)
     {
-        writeln("ファイル/フォルダをドラッグ＆ドロップしてください。");
+        message ~= "フォルダをドラッグ＆ドロップしてください。";
         return;
     }
 
-    writeln("画像ファイルのチェックと、リネームを実行しています。");
+    //writeln("画像ファイルのチェックと、リネームを実行しています。");
     try
     {
-        args[1 .. $]
-            .tee!(path => path.isDir ? writeln(path) : 0, No.pipeOnPop)
-            .each!(path => path.isDir
-                ? path.dirEntries(SpanMode.breadth)
-                    .tee!(path => path.isDir ? writeln(path) : 0, No.pipeOnPop)
-                    .each!(path => tryRename(path))
-                : tryRename(path));
+        auto listdir = dirEntries(args[1], "*.{jpg,jpeg,png,gif,bmp}*", SpanMode.breadth)
+            .filter!(f => f.isFile)
+            .array;
+        auto progress = new Bar;
+        progress.message = () => "リネームを実行しています";
+        progress.max = listdir.walkLength;
+        progress.start();
+        listdir.each!( (path) {
+            tryRename(path);
+            progress.next();
+        } );
+        progress.finish();
     }
     catch (Exception e)
     {
-        writeln(e.msg);
+        message ~= e.msg;
+        return;
     }
 
     if (counter.target > 0)
     {
-        writefln("対象となる画像ファイル数   : %8d", counter.target);
-        writefln("リネームした画像ファイル数 : %8d", counter.renamed);
-        writefln("--------");
-        writefln("重複していた画像ファイル数 : %8d", counter.duplicated);
+        message ~= format!"対象となる画像ファイル数   : %8d"(counter.target);
+        message ~= format!"リネームした画像ファイル数 : %8d"(counter.renamed);
+        message ~= "--------";
+        message ~= format!"重複していた画像ファイル数 : %8d"(counter.duplicated);
     }
     else
     {
-        writeln("画像ファイルが見つからないか、既にリネームされています。");
-        writeln("リネームされるのは、Jpeg/Png/Gif/Bmp ファイルのみです。");
+        message ~= "画像ファイルが見つからないか、既にリネームされています。";
+        message ~= "リネームされるのは、JPEG/PNG/GIF/BMPのファイルのみです。";
     }
 }
