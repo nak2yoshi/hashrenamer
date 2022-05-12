@@ -1,3 +1,4 @@
+import std.array      : appender;
 import std.process    : executeShell;
 import std.file       : isFile, isDir, dirEntries, SpanMode, exists, read, rename;
 import std.regex      : regex, replaceAll;
@@ -66,9 +67,9 @@ void main(string[] args)
         scope(exit) SetConsoleOutputCP( beforeCP );
     }
 
-    string[] message;
+    auto log = appender!(string[])();
     scope(exit) {
-        each!writeln(message);
+        each!writeln(log);
         executeShell("pause");
     }
 
@@ -92,7 +93,7 @@ void main(string[] args)
             orgName.dirName,
             setExtension(hash, ext.toLower)
         );
-        debug message ~= format!"[org:] %s"(orgName);
+        debug log.put( format!"[org:] %s"(orgName) );
 
         // 既にリネーム済みなら何もしない
         if ( ! filenameCmp(orgName, renName) )
@@ -104,18 +105,18 @@ void main(string[] args)
         {
             // ファイル名をリネーム
             orgName.rename(renName);
-            message ~= format!"[ren:] %s"(renName);
+            log.put( format!"[ren:] %s"(renName) );
             counter.renamed++;
         }
         else
         {
-            message ~= format!"[dup:] %s"(orgName);
+            log.put( format!"[dup:] %s"(orgName) );
             // ダブってたら新しい方をゴミ箱へ移動
             auto old = cast(ubyte[])read(renName);
             if (old.toHashString!HashKind == hash)
             {
                 orgName.moveToTrash;
-                message ~= format!"[del:] %s"(orgName);
+                log.put( format!"[del:] %s"(orgName) );
             }
             counter.duplicated++;
         }
@@ -123,42 +124,43 @@ void main(string[] args)
 
     if (args.length != 2 || ! args[1].isDir)
     {
-        message ~= "フォルダをドラッグ＆ドロップしてください。";
+        log.put( "フォルダをドラッグ＆ドロップしてください。" );
         return;
     }
 
-    //writeln("画像ファイルのチェックと、リネームを実行しています。");
     try
     {
         auto listdir = dirEntries(args[1], "*.{jpg,jpeg,png,gif,bmp}*", SpanMode.breadth)
             .filter!(f => f.isFile)
             .array;
-        auto progress = new Bar;
-        progress.message = () => "リネームを実行しています";
-        progress.max = listdir.walkLength;
-        progress.start();
-        listdir.each!( (path) {
-            tryRename(path);
-            progress.next();
-        } );
-        progress.finish();
+        with (new Bar) {
+            message = () => "リネームを実行しています";
+            max = listdir.walkLength;
+
+            start();
+            listdir.each!( (path) {
+                tryRename(path);
+                next();
+            } );
+            finish();
+        }
     }
     catch (Exception e)
     {
-        message ~= e.msg;
+        log.put(e.msg);
         return;
     }
 
     if (counter.target > 0)
     {
-        message ~= format!"対象となる画像ファイル数   : %8d"(counter.target);
-        message ~= format!"リネームした画像ファイル数 : %8d"(counter.renamed);
-        message ~= "--------";
-        message ~= format!"重複していた画像ファイル数 : %8d"(counter.duplicated);
+        log.put( format!"対象となる画像ファイル数   : %8d"(counter.target) );
+        log.put( format!"リネームした画像ファイル数 : %8d"(counter.renamed) );
+        log.put( "--------" );
+        log.put( format!"重複していた画像ファイル数 : %8d"(counter.duplicated) );
     }
     else
     {
-        message ~= "画像ファイルが見つからないか、既にリネームされています。";
-        message ~= "リネームされるのは、JPEG/PNG/GIF/BMPのファイルのみです。";
+        log.put( "画像ファイルが見つからないか、既にリネームされています。" );
+        log.put( "リネームされるのは、JPEG/PNG/GIF/BMPのファイルのみです。" );
     }
 }
